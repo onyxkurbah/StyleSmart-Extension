@@ -37,7 +37,7 @@ class ProductDetector {
                 alternativePriceSelectors: [
                     '.pdpCutPrice'
                 ]
-            }
+            },
         };
 
         this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
