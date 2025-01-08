@@ -18,8 +18,19 @@ class PopupManager {
             errorMessage: document.getElementById('error-message')
         };
 
+        this.productAnalyzer = new ProductAnalyzer();
+        this.loadTensorFlowModel();
+
         // Initialize the popup
         this.init();
+    }
+
+    async loadTensorFlowModel() {
+        try {
+            await this.productAnalyzer.imageAnalyzer.loadModel();
+        } catch (error) {
+            console.error('Error loading TensorFlow model:', error);
+        }
     }
 
     // Start the popup functionality
@@ -63,16 +74,14 @@ class PopupManager {
 
     // Display the current product in the popup
     displayCurrentProduct(product) {
-        // Show the product section
         this.elements.currentProduct.classList.remove('is-hidden');
-        
-        // Update the product information
         this.elements.productImage.src = product.image;
         this.elements.productTitle.textContent = product.title;
+        
+        // Format price in Indian Rupees
         this.elements.productPrice.textContent = 
-            product.price ? `$${product.price.toFixed(2)}` : 'Price not available';
-        this.elements.productStore.textContent = 
-            `Found on ${product.domain}`;
+            product.price ? `₹${product.price.toLocaleString('en-IN')}` : 'Price not available';
+        this.elements.productStore.textContent = `Found on ${product.domain}`;
     }
 
     // Fetch available coupons for the current store
@@ -129,28 +138,44 @@ class PopupManager {
 
     // Fetch similar products
     async fetchSimilarProducts(product) {
-        // Show the similar products section
         this.elements.similarProductsSection.classList.remove('is-hidden');
 
-        // For now, we'll use sample similar products
-        // In a real extension, you would use an API to find similar products
-        const sampleProducts = [
-            {
-                title: 'Similar Style Product',
-                price: 49.99,
-                store: 'OtherStore.com',
-                image: product.image
-            },
-            {
-                title: 'Alternative Option',
-                price: 39.99,
-                store: 'FashionStore.com',
-                image: product.image
-            }
-        ];
+        try {
+            // Get previously detected products from storage
+            const result = await chrome.storage.local.get(['detectedProducts']);
+            let similarProducts = [];
 
-        this.displaySimilarProducts(sampleProducts);
+            if (result.detectedProducts && result.detectedProducts.length > 0) {
+                // Analyze similarity with each stored product
+                const similarityPromises = result.detectedProducts.map(async (storedProduct) => {
+                    const similarity = await this.productAnalyzer.analyzeSimilarity(
+                        product,
+                        storedProduct
+                    );
+
+                    return {
+                        ...storedProduct,
+                        similarityScore: similarity
+                    };
+                });
+
+                // Wait for all comparisons to complete
+                similarProducts = await Promise.all(similarityPromises);
+
+                // Sort by similarity and take top 4
+                similarProducts = similarProducts
+                    .filter(p => p.similarityScore > 0.5)
+                    .sort((a, b) => b.similarityScore - a.similarityScore)
+                    .slice(0, 4);
+            }
+
+            this.displaySimilarProducts(similarProducts);
+        } catch (error) {
+            console.error('Error finding similar products:', error);
+            this.elements.noProducts.classList.remove('is-hidden');
+        }
     }
+
 
     // Display similar products in the popup
     displaySimilarProducts(products) {
@@ -159,7 +184,6 @@ class PopupManager {
             return;
         }
 
-        // Create HTML for each similar product
         this.elements.productsGrid.innerHTML = products.map(product => `
             <div class="column is-6">
                 <div class="card product-card">
@@ -170,14 +194,15 @@ class PopupManager {
                     </div>
                     <div class="card-content">
                         <p class="title is-6">${product.title}</p>
-                        <p class="subtitle is-6 has-text-primary">$${product.price}</p>
+                        <p class="subtitle is-6 has-text-primary">
+                            ₹${product.price.toLocaleString('en-IN')}
+                        </p>
                         <p class="is-size-7 has-text-grey">${product.store}</p>
                     </div>
                 </div>
             </div>
         `).join('');
     }
-
     // Show error message when something goes wrong
     showError() {
         this.elements.errorMessage.classList.remove('is-hidden');

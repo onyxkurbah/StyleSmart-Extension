@@ -2,33 +2,52 @@
 class ProductDetector {
     constructor() {
         // List of supported shopping sites and their HTML selectors
-this.SUPPORTED_SITES = {
-    'amazon.com': {
-        titleSelector: '#productTitle',
-        priceSelector: '.a-price-whole',
-        imageSelector: '#landingImage'
-    },
-    'amazon.in': {
-        titleSelector: '#productTitle',
-        priceSelector: '.a-price-whole',
-        imageSelector: '#landingImage'
-    },
-    'zara.com': {
-        titleSelector: '.product-detail-info h1',
-        priceSelector: '.price__amount',
-        imageSelector: '.media-image img'
-    },
-    'snapdeal.com': {
-        titleSelector: '.pdp-e-i-head', // Selector for product title
-        priceSelector: '.payBlkBig', // Selector for product price
-        imageSelector: '.cloudzoom' // Selector for product image
-    }
+        this.SUPPORTED_SITES = {
+            'amazon.in': {
+                titleSelector: '#productTitle',
+                priceSelector: '.a-price-whole',
+                imageSelector: '#landingImage',
+                // Additional selectors for different product page layouts
+                alternativePriceSelectors: [
+                    '#priceblock_ourprice',
+                    '#priceblock_dealprice',
+                    '.a-price .a-offscreen'
+                ]
+            },
+            'flipkart.com': {
+                titleSelector: '.B_NuCI',
+                priceSelector: '._30jeq3._16Jk6d',
+                imageSelector: '._396cs4',
+                alternativePriceSelectors: [
+                    '._30jeq3'
+                ]
+            },
+            'myntra.com': {
+                titleSelector: '.pdp-title',
+                priceSelector: '.pdp-price strong',
+                imageSelector: '.image-grid-image',
+                alternativePriceSelectors: [
+                    '.pdp-mrp strong'
+                ]
+            },
+            'ajio.com': {
+                titleSelector: '.prod-name',
+                priceSelector: '.prod-sp',
+                imageSelector: '.zoom-wrap img',
+                alternativePriceSelectors: [
+                    '.prod-cp'
+                ]
+            },
+            'snapdeal.com': {
+                titleSelector: '.pdp-e-i-head',
+                priceSelector: '.payBlkBig',
+                imageSelector: '#bx-slider-left-image-panel img',
+                alternativePriceSelectors: [
+                    '.pdpCutPrice'
+                ]
+            }
+        };
 
-    // You can add more sites here later
-};
-
-
-        // Get the current website's configuration
         this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
     }
 
@@ -46,8 +65,15 @@ this.SUPPORTED_SITES = {
     // Helper function to extract price from text
     extractPrice(text) {
         if (!text) return null;
-        const match = text.match(/[\d,.]+/);
-        return match ? parseFloat(match[0].replace(/,/g, '')) : null;
+        
+        // Remove common Indian currency symbols and text
+        text = text.replace(/^₹|,|rs\.?|rupees?/gi, '').trim();
+        
+        // Extract the number
+        const match = text.match(/(\d+(?:\.\d+)?)/);
+        if (!match) return null;
+        
+        return parseFloat(match[1]);
     }
 
     // Main function to detect product information
@@ -82,13 +108,32 @@ this.SUPPORTED_SITES = {
     // Function to find and get the product price
     getProductPrice() {
         try {
-            const element = document.querySelector(this.site.priceSelector);
-            return this.extractPrice(element?.textContent);
+            // Try the main price selector first
+            let priceElement = document.querySelector(this.site.priceSelector);
+            let price = null;
+
+            if (priceElement) {
+                price = this.extractPrice(priceElement.textContent);
+            }
+
+            // If main selector failed, try alternatives
+            if (!price && this.site.alternativePriceSelectors) {
+                for (let selector of this.site.alternativePriceSelectors) {
+                    priceElement = document.querySelector(selector);
+                    if (priceElement) {
+                        price = this.extractPrice(priceElement.textContent);
+                        if (price) break;
+                    }
+                }
+            }
+
+            return price;
         } catch (error) {
             console.error('Error getting product price:', error);
             return null;
         }
     }
+
 
     // Function to find and get the product image
     getProductImage() {

@@ -1,49 +1,56 @@
 {
-  "manifest_version": 3,
-  "name": "StyleSmart",
-  "description": "Streamline your online fashion shopping by finding similar products and coupons effortlessly.",
-  "version": "1.0",
-  "icons": {
-    "16": "assets/icons/icon16.png",
-    "48": "assets/icons/icon48.png",
-    "128": "assets/icons/icon128.png"
+    "manifest_version": 3,
+    "name": "StyleSmart",
+    "description": "Streamline your online fashion shopping by finding similar products and coupons effortlessly.",
+    "version": "1.0",
+    "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self'"
   },
-  "action": {
-    "default_popup": "src/popup/popup.html",
-    "default_icon": "assets/icons/icon16.png",
-    "default_title": "StyleSmart"
-  },
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "clipboardWrite"
-  ],
+    "icons": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    },
+    "action": {
+      "default_popup": "src/popup/popup.html",
+      "default_icon": "assets/icons/icon16.png",
+      "default_title": "StyleSmart"
+    },
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "storage",
+      "clipboardWrite"
+    ],
 "host_permissions": [
-"https://*/*",
-"http://*zara.com/in/*",
-"https://*.amazon.com/*",
-"https://*.amazon.in/*",
-"https://*.zara.com/*",
-"https://*.snapdeal.com/*"
+  "https://*/*",
+  "https://*/*",
+  "https://*ajio.com/*",
+  "https://*.amazon.com/*",
+  "https://*.amazon.in/*",
+  "https://*.zara.com/*",
+  "https://*.snapdeal.com/*",
+  "https://*.flipkart.com/*"
+  
 ],
 "content_scripts": [
-{
-  "matches": [
-    "https://*/*",
-    "http://*/*",
-    "https://*.amazon.com/*",
-    "https://*.amazon.in/*",
-    "https://*.zara.com/*",
-    "https://*.snapdeal.com/*"
-  ],
-  "js": [
-    "src/content/productDetector.js",
-    "src/content/content.js"
-  ]
-}
-],
-  "background": {
-    "service_worker": "src/background/background.js"
+  {
+    "matches": [
+      "https://*/*",
+      "http://*/*",
+      "https://*.amazon.com/*",
+      "https://*.amazon.in/*",
+      "https://*.zara.com/*",
+      "https://*.snapdeal.com/*",
+      "https://*.flipkart.com/*"
+    ],
+    "js": [
+      "src/content/productDetector.js",
+      "src/content/content.js"
+    ]
   }
+],
+    "background": {
+      "service_worker": "src/background/background.js"
+    }
 }
