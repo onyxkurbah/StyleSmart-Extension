@@ -23,24 +23,18 @@
     "clipboardWrite"
   ],
 "host_permissions": [
-"https://*/*",
-"https://*/*",
 "https://*ajio.com/*",
 "https://*.amazon.com/*",
 "https://*.amazon.in/*",
-"https://*.zara.com/*",
 "https://*.snapdeal.com/*"
 
 ],
 "content_scripts": [
 {
   "matches": [
-    "https://*/*",
-    "http://*/*",
     "https://*ajio.com/*",
     "https://*.amazon.com/*",
     "https://*.amazon.in/*",
-    "https://*.zara.com/*",
     "https://*.snapdeal.com/*"
   ],
   "js": [
