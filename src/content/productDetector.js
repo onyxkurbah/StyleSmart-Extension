@@ -2,19 +2,31 @@
 class ProductDetector {
     constructor() {
         // List of supported shopping sites and their HTML selectors
-        this.SUPPORTED_SITES = {
-            'amazon.com': {
-                titleSelector: '#productTitle',
-                priceSelector: '.a-price-whole',
-                imageSelector: '#landingImage'
-            },
-            'zara.com': {
-                titleSelector: '.product-detail-info h1',
-                priceSelector: '.price__amount',
-                imageSelector: '.media-image img'
-            }
-            // You can add more sites here later
-        };
+this.SUPPORTED_SITES = {
+    'amazon.com': {
+        titleSelector: '#productTitle',
+        priceSelector: '.a-price-whole',
+        imageSelector: '#landingImage'
+    },
+    'amazon.in': {
+        titleSelector: '#productTitle',
+        priceSelector: '.a-price-whole',
+        imageSelector: '#landingImage'
+    },
+    'zara.com': {
+        titleSelector: '.product-detail-info h1',
+        priceSelector: '.price__amount',
+        imageSelector: '.media-image img'
+    },
+    'snapdeal.com': {
+        titleSelector: '.pdp-e-i-head', // Selector for product title
+        priceSelector: '.payBlkBig', // Selector for product price
+        imageSelector: '.cloudzoom' // Selector for product image
+    }
+
+    // You can add more sites here later
+};
+
 
         // Get the current website's configuration
         this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
