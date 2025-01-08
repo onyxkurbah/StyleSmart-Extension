@@ -1,1 +1,0 @@
-# StyleSmart-Extension
