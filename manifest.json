@@ -1,0 +1,45 @@
+{
+    "manifest_version": 3,
+    "name": "StyleSmart",
+    "description": "Streamline your online fashion shopping by finding similar products and coupons effortlessly.",
+    "version": "1.0",
+    "icons": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    },
+    "action": {
+      "default_popup": "src/popup/popup.html",
+      "default_icon": "assets/icons/icon16.png",
+      "default_title": "StyleSmart"
+    },
+    "permissions": [
+      "activeTab",
+      "scripting",
+      "storage",
+      "clipboardWrite"
+    ],
+"host_permissions": [
+  "https://*/*",
+  "http://*/*",
+  "https://*.amazon.com/*",
+  "https://*.zara.com/*"
+],
+"content_scripts": [
+  {
+    "matches": [
+      "https://*/*",
+      "http://*/*",
+      "https://*.amazon.com/*",
+      "https://*.zara.com/*"
+    ],
+    "js": [
+      "src/content/productDetector.js",
+      "src/content/content.js"
+    ]
+  }
+],
+    "background": {
+      "service_worker": "src/background/background.js"
+    }
+}

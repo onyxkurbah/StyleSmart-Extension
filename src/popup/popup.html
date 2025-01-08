@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StyleSmart</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Navigation bar with logo -->
+        <nav class="navbar is-primary">
+            <div class="navbar-brand">
+                <div class="navbar-item">
+                    <img src="../../assets/icons/icon48.png" alt="StyleSmart" width="28" height="28">
+                    <span class="ml-2 has-text-weight-bold">StyleSmart</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main content section -->
+        <div class="section pt-4 pb-4">
+            <!-- Loading message (shown while detecting product) -->
+            <div id="loading" class="loading">
+                Detecting product
+            </div>
+
+            <!-- Current product section -->
+            <div id="current-product" class="is-hidden">
+                <div class="card current-product-card">
+                    <div class="card-image">
+                        <figure class="image">
+                            <img id="product-image" src="" alt="Product">
+                        </figure>
+                    </div>
+                    <div class="card-content">
+                        <p id="product-title" class="title is-5"></p>
+                        <p id="product-price" class="subtitle is-6 has-text-primary"></p>
+                        <p id="product-store" class="is-size-7 has-text-grey"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coupons section -->
+            <div id="coupons-section" class="mb-5 is-hidden">
+                <h5 class="title is-5 mb-3">Available Coupons</h5>
+                <div id="coupons-list"></div>
+                <p id="no-coupons" class="has-text-centered has-text-grey is-hidden">
+                    No coupons available for this site.
+                </p>
+            </div>
+
+            <!-- Similar products section -->
+            <div id="similar-products-section" class="is-hidden">
+                <h5 class="title is-5 mb-3">Similar Products</h5>
+                <div id="products-grid" class="columns is-multiline"></div>
+                <p id="no-products" class="has-text-centered has-text-grey is-hidden">
+                    No similar products found.
+                </p>
+            </div>
+
+            <!-- Error message -->
+            <div id="error-message" class="notification is-danger is-light is-hidden">
+                Sorry, we couldn't detect a product on this page.
+            </div>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
