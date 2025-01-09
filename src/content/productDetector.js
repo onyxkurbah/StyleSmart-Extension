@@ -14,6 +14,14 @@ class ProductDetector {
                     '.a-price .a-offscreen'
                 ]
             },
+            'flipkart.com': {
+                titleSelector: '.B_NuCI',
+                priceSelector: '._30jeq3._16Jk6d',
+                imageSelector: '._396cs4',
+                alternativePriceSelectors: [
+                    '._30jeq3'
+                ]
+            },
             'myntra.com': {
                 titleSelector: '.pdp-title',
                 priceSelector: '.pdp-price strong',
@@ -37,7 +45,7 @@ class ProductDetector {
                 alternativePriceSelectors: [
                     '.pdpCutPrice'
                 ]
-            },
+            }
         };
 
         this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
