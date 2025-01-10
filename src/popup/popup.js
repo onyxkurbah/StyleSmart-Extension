@@ -1,7 +1,6 @@
-// This class manages everything that happens in the popup window
+// src/popup/popup.js
 class PopupManager {
     constructor() {
-        // Store references to DOM elements we'll need frequently
         this.elements = {
             loading: document.getElementById('loading'),
             currentProduct: document.getElementById('current-product'),
@@ -18,22 +17,9 @@ class PopupManager {
             errorMessage: document.getElementById('error-message')
         };
 
-        this.productAnalyzer = new ProductAnalyzer();
-        this.loadTensorFlowModel();
-
-        // Initialize the popup
         this.init();
     }
 
-    async loadTensorFlowModel() {
-        try {
-            await this.productAnalyzer.imageAnalyzer.loadModel();
-        } catch (error) {
-            console.error('Error loading TensorFlow model:', error);
-        }
-    }
-
-    // Start the popup functionality
     async init() {
         try {
             // Get the current tab
@@ -42,19 +28,70 @@ class PopupManager {
                 currentWindow: true 
             });
 
-            // Ask the content script to detect any product on the page
-            chrome.tabs.sendMessage(
-                tab.id,
-                { type: 'GET_PRODUCT_DETAILS' },
-                this.handleProductDetails.bind(this)
-            );
+            if (!tab) {
+                throw new Error('No active tab found');
+            }
+
+            // Ensure content scripts are loaded
+            await this.ensureContentScriptsLoaded(tab);
+
+            // Try to get product details
+            const productDetails = await this.getProductDetails(tab);
+            this.handleProductDetails(productDetails);
         } catch (error) {
             console.error('Error initializing popup:', error);
             this.showError();
         }
     }
 
-    // Handle the product information we get back from the content script
+    async ensureContentScriptsLoaded(tab) {
+        try {
+            // Check if we can communicate with the content scripts
+            await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+        } catch (error) {
+            // If content scripts aren't loaded, inject them manually
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: [
+                    'src/utils/imageAnalyzer.js',
+                    'src/utils/textAnalyzer.js',
+                    'src/utils/productAnalyzer.js',
+                    'src/content/productDetector.js',
+                    'src/content/content.js'
+                ]
+            });
+
+            // Wait a bit for scripts to initialize
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+
+    async getProductDetails(tab) {
+        try {
+            return await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Timeout getting product details'));
+                }, 5000);
+
+                chrome.tabs.sendMessage(
+                    tab.id,
+                    { type: 'GET_PRODUCT_DETAILS' },
+                    response => {
+                        clearTimeout(timeout);
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else {
+                            resolve(response);
+                        }
+                    }
+                );
+            });
+        } catch (error) {
+            console.error('Error getting product details:', error);
+            throw error;
+        }
+    }
+
     handleProductDetails(productDetails) {
         // Hide the loading message
         this.elements.loading.classList.add('is-hidden');
@@ -72,41 +109,65 @@ class PopupManager {
         this.fetchSimilarProducts(productDetails);
     }
 
-    // Display the current product in the popup
     displayCurrentProduct(product) {
         this.elements.currentProduct.classList.remove('is-hidden');
-        this.elements.productImage.src = product.image;
-        this.elements.productTitle.textContent = product.title;
-        
-        // Format price in Indian Rupees
-        this.elements.productPrice.textContent = 
-            product.price ? `₹${product.price.toLocaleString('en-IN')}` : 'Price not available';
-        this.elements.productStore.textContent = `Found on ${product.domain}`;
+        this.elements.productImage.src = product.image || '';
+        this.elements.productTitle.textContent = product.title || 'Product Title Not Available';
+        this.elements.productPrice.textContent = product.price ? 
+            `₹${product.price.toLocaleString('en-IN')}` : 'Price not available';
+        this.elements.productStore.textContent = `Found on ${product.domain || 'this site'}`;
     }
 
-    // Fetch available coupons for the current store
     async fetchCoupons(domain) {
-        // Show the coupons section
         this.elements.couponsSection.classList.remove('is-hidden');
 
-        // For now, we'll use sample coupons
-        // In a real extension, you would fetch these from an API
-        const sampleCoupons = [
-            { code: 'SAVE10', description: '10% off your purchase' },
-            { code: 'FREESHIP', description: 'Free shipping on orders over $50' }
-        ];
+        try {
+            const coupons = await new Promise((resolve) => {
+                const timeout = setTimeout(() => resolve([]), 5000);
+                chrome.runtime.sendMessage({
+                    type: 'GET_COUPONS',
+                    domain: domain
+                }, response => {
+                    clearTimeout(timeout);
+                    resolve(response || []);
+                });
+            });
 
-        this.displayCoupons(sampleCoupons);
+            this.displayCoupons(coupons);
+        } catch (error) {
+            console.error('Error fetching coupons:', error);
+            this.elements.noCoupons.classList.remove('is-hidden');
+        }
     }
 
-    // Display the coupons in the popup
+    async fetchSimilarProducts(product) {
+        this.elements.similarProductsSection.classList.remove('is-hidden');
+
+        try {
+            const similarProducts = await new Promise((resolve) => {
+                const timeout = setTimeout(() => resolve([]), 10000);
+                chrome.runtime.sendMessage({
+                    type: 'FIND_SIMILAR_PRODUCTS',
+                    data: product
+                }, response => {
+                    clearTimeout(timeout);
+                    resolve(response || []);
+                });
+            });
+
+            this.displaySimilarProducts(similarProducts);
+        } catch (error) {
+            console.error('Error finding similar products:', error);
+            this.elements.noProducts.classList.remove('is-hidden');
+        }
+    }
+
     displayCoupons(coupons) {
         if (!coupons || coupons.length === 0) {
             this.elements.noCoupons.classList.remove('is-hidden');
             return;
         }
 
-        // Create HTML for each coupon
         this.elements.couponsList.innerHTML = coupons.map(coupon => `
             <div class="coupon-item">
                 <div class="columns is-vcentered is-mobile">
@@ -124,7 +185,6 @@ class PopupManager {
             </div>
         `).join('');
 
-        // Add click handlers for the copy buttons
         this.elements.couponsList.querySelectorAll('.copy-code').forEach(button => {
             button.addEventListener('click', () => {
                 navigator.clipboard.writeText(button.dataset.code);
@@ -136,48 +196,6 @@ class PopupManager {
         });
     }
 
-    // Fetch similar products
-    async fetchSimilarProducts(product) {
-        this.elements.similarProductsSection.classList.remove('is-hidden');
-
-        try {
-            // Get previously detected products from storage
-            const result = await chrome.storage.local.get(['detectedProducts']);
-            let similarProducts = [];
-
-            if (result.detectedProducts && result.detectedProducts.length > 0) {
-                // Analyze similarity with each stored product
-                const similarityPromises = result.detectedProducts.map(async (storedProduct) => {
-                    const similarity = await this.productAnalyzer.analyzeSimilarity(
-                        product,
-                        storedProduct
-                    );
-
-                    return {
-                        ...storedProduct,
-                        similarityScore: similarity
-                    };
-                });
-
-                // Wait for all comparisons to complete
-                similarProducts = await Promise.all(similarityPromises);
-
-                // Sort by similarity and take top 4
-                similarProducts = similarProducts
-                    .filter(p => p.similarityScore > 0.5)
-                    .sort((a, b) => b.similarityScore - a.similarityScore)
-                    .slice(0, 4);
-            }
-
-            this.displaySimilarProducts(similarProducts);
-        } catch (error) {
-            console.error('Error finding similar products:', error);
-            this.elements.noProducts.classList.remove('is-hidden');
-        }
-    }
-
-
-    // Display similar products in the popup
     displaySimilarProducts(products) {
         if (!products || products.length === 0) {
             this.elements.noProducts.classList.remove('is-hidden');
@@ -186,30 +204,37 @@ class PopupManager {
 
         this.elements.productsGrid.innerHTML = products.map(product => `
             <div class="column is-6">
-                <div class="card product-card">
+                <a href="${product.url}" target="_blank" class="card product-card">
                     <div class="card-image">
                         <figure class="image">
-                            <img src="${product.image}" alt="${product.title}">
+                            <img src="${product.image || ''}" alt="${product.title || 'Product Image'}" 
+                                 onerror="this.src='../../assets/icons/placeholder.png'">
                         </figure>
                     </div>
                     <div class="card-content">
-                        <p class="title is-6">${product.title}</p>
+                        <p class="title is-6">${product.title || 'Product Title'}</p>
                         <p class="subtitle is-6 has-text-primary">
-                            ₹${product.price.toLocaleString('en-IN')}
+                            ${product.price ? `₹${product.price.toLocaleString('en-IN')}` : 'Price N/A'}
                         </p>
-                        <p class="is-size-7 has-text-grey">${product.store}</p>
+                        <p class="is-size-7 has-text-grey">${product.domain || 'Unknown Store'}</p>
+                        <div class="mt-2">
+                            <span class="tag is-info">
+                                ${Math.round((product.similarityScore || 0) * 100)}% match
+                            </span>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
         `).join('');
     }
-    // Show error message when something goes wrong
+
     showError() {
+        this.elements.loading.classList.add('is-hidden');
         this.elements.errorMessage.classList.remove('is-hidden');
     }
 }
 
-// When the popup HTML is loaded, create a new PopupManager
+// Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new PopupManager();
 });

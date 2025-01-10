@@ -25,7 +25,7 @@
 "host_permissions": [
   "https://*/*",
   "https://*/*",
-  "https://*ajio.com/*",
+  "https://*.ajio.com/*",
   "https://*.amazon.com/*",
   "https://*.amazon.in/*",
   "https://*.zara.com/*",
@@ -38,6 +38,7 @@
     "matches": [
       "https://*/*",
       "http://*/*",
+      "https://*.ajio.com/*",
       "https://*.amazon.com/*",
       "https://*.amazon.in/*",
       "https://*.zara.com/*",
@@ -45,6 +46,7 @@
       "https://*.flipkart.com/*"
     ],
     "js": [
+      "src/utils/productAnalyzer.js",
       "src/content/productDetector.js",
       "src/content/content.js"
     ]

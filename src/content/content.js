@@ -1,7 +1,8 @@
-// Message types for communication between different parts of the extension
+// src/content/content.js
 const MESSAGE_TYPES = {
     PRODUCT_FOUND: 'PRODUCT_FOUND',
-    GET_PRODUCT_DETAILS: 'GET_PRODUCT_DETAILS'
+    GET_PRODUCT_DETAILS: 'GET_PRODUCT_DETAILS',
+    PING: 'PING'
 };
 
 // Function to initialize our product detection
@@ -37,15 +38,25 @@ if (document.readyState === 'loading') {
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === MESSAGE_TYPES.GET_PRODUCT_DETAILS) {
-        try {
-            const detector = new ProductDetector();
-            const productInfo = detector.detectProduct();
-            sendResponse(productInfo);
-        } catch (error) {
-            console.error('StyleSmart: Error getting product details:', error);
-            sendResponse(null);
+    try {
+        switch (message.type) {
+            case MESSAGE_TYPES.GET_PRODUCT_DETAILS:
+                const detector = new ProductDetector();
+                const productInfo = detector.detectProduct();
+                sendResponse(productInfo);
+                break;
+
+            case MESSAGE_TYPES.PING:
+                // Respond to ping to confirm content scripts are loaded
+                sendResponse(true);
+                break;
+
+            default:
+                sendResponse(null);
         }
+    } catch (error) {
+        console.error('StyleSmart: Error handling message:', error);
+        sendResponse(null);
     }
-    return true; // Keep the message channel open for sendResponse
+    return true; // Keep the message channel open for async responses
 });

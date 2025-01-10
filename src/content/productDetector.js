@@ -1,18 +1,22 @@
-// This class is responsible for finding product information on shopping websites
 class ProductDetector {
     constructor() {
-        // List of supported shopping sites and their HTML selectors
         this.SUPPORTED_SITES = {
             'amazon.in': {
                 titleSelector: '#productTitle',
                 priceSelector: '.a-price-whole',
                 imageSelector: '#landingImage',
-                // Additional selectors for different product page layouts
                 alternativePriceSelectors: [
                     '#priceblock_ourprice',
                     '#priceblock_dealprice',
                     '.a-price .a-offscreen'
-                ]
+                ],
+                searchResults: {
+                    container: '.s-result-item[data-asin]',
+                    title: 'h2 .a-link-normal',
+                    price: '.a-price-whole',
+                    image: '.s-image',
+                    link: 'h2 .a-link-normal'
+                }
             },
             'flipkart.com': {
                 titleSelector: '.B_NuCI',
@@ -20,7 +24,14 @@ class ProductDetector {
                 imageSelector: '._396cs4',
                 alternativePriceSelectors: [
                     '._30jeq3'
-                ]
+                ],
+                searchResults: {
+                    container: '._1AtVbE',
+                    title: '._4rR01T',
+                    price: '._30jeq3',
+                    image: '._396cs4',
+                    link: '._1fQZEK'
+                }
             },
             'myntra.com': {
                 titleSelector: '.pdp-title',
@@ -28,7 +39,14 @@ class ProductDetector {
                 imageSelector: '.image-grid-image',
                 alternativePriceSelectors: [
                     '.pdp-mrp strong'
-                ]
+                ],
+                searchResults: {
+                    container: '.product-base',
+                    title: '.product-brand',
+                    price: '.product-price',
+                    image: '.product-image',
+                    link: 'a'
+                }
             },
             'ajio.com': {
                 titleSelector: '.prod-name',
@@ -36,7 +54,14 @@ class ProductDetector {
                 imageSelector: '.zoom-wrap img',
                 alternativePriceSelectors: [
                     '.prod-cp'
-                ]
+                ],
+                searchResults: {
+                    container: '.item',
+                    title: '.nameCls',
+                    price: '.price',
+                    image: '.img-radius',
+                    link: 'a'
+                }
             },
             'snapdeal.com': {
                 titleSelector: '.pdp-e-i-head',
@@ -44,44 +69,85 @@ class ProductDetector {
                 imageSelector: '#bx-slider-left-image-panel img',
                 alternativePriceSelectors: [
                     '.pdpCutPrice'
-                ]
+                ],
+                searchResults: {
+                    container: '.product-tuple-listing',
+                    title: '.product-title',
+                    price: '.product-price',
+                    image: '.product-image img',
+                    link: '.product-title'
+                }
             }
         };
 
         this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
     }
 
-    // Helper function to get the current website's domain
+    detectSearchResults() {
+        if (!this.site?.searchResults) return [];
+        
+        const results = [];
+        const containers = document.querySelectorAll(this.site.searchResults.container);
+        let count = 0;
+        
+        containers.forEach(container => {
+            try {
+                if (count >= 10) return;
+                
+                const titleElem = container.querySelector(this.site.searchResults.title);
+                const priceElem = container.querySelector(this.site.searchResults.price);
+                const imageElem = container.querySelector(this.site.searchResults.image);
+                const linkElem = container.querySelector(this.site.searchResults.link);
+
+                if (titleElem && (priceElem || linkElem)) {
+                    const title = this.cleanText(titleElem.textContent);
+                    const price = this.extractPrice(priceElem?.textContent);
+                    const url = linkElem?.href || '';
+                    
+                    if (title && title.length > 5 && url && !url.includes('javascript:')) {
+                        results.push({
+                            title,
+                            price,
+                            image: imageElem?.src || '',
+                            url,
+                            domain: this.getCurrentDomain()
+                        });
+                        count++;
+                    }
+                }
+            } catch (error) {
+                console.error('Error extracting search result:', error);
+            }
+        });
+
+        return results;
+    }
+
     getCurrentDomain() {
         return window.location.hostname.replace('www.', '');
     }
 
-    // Helper function to clean up text (remove extra spaces, etc.)
     cleanText(text) {
         if (!text) return '';
         return text.trim().replace(/\s+/g, ' ');
     }
 
-    // Helper function to extract price from text
     extractPrice(text) {
         if (!text) return null;
         
-        // Remove common Indian currency symbols and text
-        text = text.replace(/^₹|,|rs\.?|rupees?/gi, '').trim();
+        text = text.toLowerCase()
+            .replace(/[₹₨rs.]/gi, '')
+            .replace(/,/g, '')
+            .replace(/[^0-9.]/g, '')
+            .trim();
         
-        // Extract the number
-        const match = text.match(/(\d+(?:\.\d+)?)/);
-        if (!match) return null;
-        
-        return parseFloat(match[1]);
+        const price = parseFloat(text);
+        return isNaN(price) ? null : price;
     }
 
-    // Main function to detect product information
     detectProduct() {
-        // If we're not on a supported shopping site, return null
         if (!this.site) return null;
 
-        // Get all product information
         const productInfo = {
             title: this.getProductTitle(),
             price: this.getProductPrice(),
@@ -90,11 +156,9 @@ class ProductDetector {
             domain: this.getCurrentDomain()
         };
 
-        // Only return the product if we found at least a title
         return productInfo.title ? productInfo : null;
     }
 
-    // Function to find and get the product title
     getProductTitle() {
         try {
             const element = document.querySelector(this.site.titleSelector);
@@ -105,10 +169,8 @@ class ProductDetector {
         }
     }
 
-    // Function to find and get the product price
     getProductPrice() {
         try {
-            // Try the main price selector first
             let priceElement = document.querySelector(this.site.priceSelector);
             let price = null;
 
@@ -116,7 +178,6 @@ class ProductDetector {
                 price = this.extractPrice(priceElement.textContent);
             }
 
-            // If main selector failed, try alternatives
             if (!price && this.site.alternativePriceSelectors) {
                 for (let selector of this.site.alternativePriceSelectors) {
                     priceElement = document.querySelector(selector);
@@ -134,8 +195,6 @@ class ProductDetector {
         }
     }
 
-
-    // Function to find and get the product image
     getProductImage() {
         try {
             const element = document.querySelector(this.site.imageSelector);
@@ -147,5 +206,4 @@ class ProductDetector {
     }
 }
 
-// Make the class available globally
 window.ProductDetector = ProductDetector;
