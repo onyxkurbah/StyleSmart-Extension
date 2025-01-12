@@ -1,4 +1,5 @@
 // src/popup/popup.js
+
 class PopupManager {
     constructor() {
         this.elements = {
@@ -14,7 +15,8 @@ class PopupManager {
             similarProductsSection: document.getElementById('similar-products-section'),
             productsGrid: document.getElementById('products-grid'),
             noProducts: document.getElementById('no-products'),
-            errorMessage: document.getElementById('error-message')
+            errorMessage: document.getElementById('error-message'),
+            productsLoading: document.getElementById('products-loading')
         };
 
         this.init();
@@ -44,12 +46,17 @@ class PopupManager {
         }
     }
 
+
     async ensureContentScriptsLoaded(tab) {
         try {
-            // Check if we can communicate with the content scripts
-            await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+            // Try to ping the content script
+            const response = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+            if (!response || response.status !== 'ok') {
+                throw new Error('Invalid response');
+            }
         } catch (error) {
-            // If content scripts aren't loaded, inject them manually
+            console.log('Injecting content scripts...');
+            // Inject in correct order
             await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
                 files: [
@@ -60,9 +67,20 @@ class PopupManager {
                     'src/content/content.js'
                 ]
             });
-
-            // Wait a bit for scripts to initialize
-            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Give scripts time to initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Verify injection worked
+            try {
+                const verifyResponse = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+                if (!verifyResponse || verifyResponse.status !== 'ok') {
+                    throw new Error('Scripts did not initialize properly');
+                }
+            } catch (error) {
+                console.error('Failed to verify script injection:', error);
+                throw error;
+            }
         }
     }
 
@@ -142,7 +160,12 @@ class PopupManager {
 
     async fetchSimilarProducts(product) {
         this.elements.similarProductsSection.classList.remove('is-hidden');
-
+        
+        // Show loading spinner
+        const productsLoading = document.getElementById('products-loading');
+        productsLoading.classList.remove('is-hidden');
+        this.elements.productsGrid.classList.add('is-hidden');
+    
         try {
             const similarProducts = await new Promise((resolve) => {
                 const timeout = setTimeout(() => resolve([]), 10000);
@@ -154,10 +177,14 @@ class PopupManager {
                     resolve(response || []);
                 });
             });
-
+    
+            // Hide loading spinner and show results
+            productsLoading.classList.add('is-hidden');
+            this.elements.productsGrid.classList.remove('is-hidden');
             this.displaySimilarProducts(similarProducts);
         } catch (error) {
             console.error('Error finding similar products:', error);
+            productsLoading.classList.add('is-hidden');
             this.elements.noProducts.classList.remove('is-hidden');
         }
     }

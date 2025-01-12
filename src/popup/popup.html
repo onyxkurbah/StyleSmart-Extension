@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StyleSmart</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap">
     <link rel="stylesheet" href="popup.css">
 </head>
 <body>
     <div class="popup-container">
         <!-- Navigation bar with logo -->
-        <nav class="navbar is-primary">
+        <nav class="navbar">
             <div class="navbar-brand">
                 <div class="navbar-item">
-                    <img src="../../assets/icons/icon48.png" alt="StyleSmart" width="28" height="28">
-                    <span class="ml-2 has-text-weight-bold">StyleSmart</span>
+                    <img src="../../assets/icons/icon48.png" alt="StyleSmart" width="32" height="32">
+                    <span class="ml-2 stylesmart-logo">StyleSmart</span>
                 </div>
             </div>
         </nav>
@@ -22,8 +23,13 @@
         <!-- Main content section -->
         <div class="section pt-4 pb-4">
             <!-- Loading message (shown while detecting product) -->
-            <div id="loading" class="loading">
-                Detecting product
+            <div id="loading" class="loader-container">
+                <div class="futuristic-loader">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <p class="loading-text has-text-white">Detecting product...</p>
             </div>
 
             <!-- Current product section -->
@@ -31,7 +37,7 @@
                 <div class="card current-product-card">
                     <div class="card-image">
                         <figure class="image">
-                            <img id="product-image" src="" alt="Product">
+                            <img id="product-image" src="/placeholder.svg" alt="Product">
                         </figure>
                     </div>
                     <div class="card-content">
@@ -46,7 +52,7 @@
             <div id="coupons-section" class="mb-5 is-hidden">
                 <h5 class="title is-5 mb-3">Available Coupons</h5>
                 <div id="coupons-list"></div>
-                <p id="no-coupons" class="has-text-centered has-text-grey is-hidden">
+                <p id="no-coupons" class="has-text-centered has-text-white is-hidden">
                     No coupons available for this site.
                 </p>
             </div>
@@ -54,8 +60,16 @@
             <!-- Similar products section -->
             <div id="similar-products-section" class="is-hidden">
                 <h5 class="title is-5 mb-3">Similar Products</h5>
+                <div id="products-loading" class="loader-container">
+                    <div class="futuristic-loader">
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                    </div>
+                    <p class="loading-text">Finding similar products...</p>
+                </div>
                 <div id="products-grid" class="columns is-multiline"></div>
-                <p id="no-products" class="has-text-centered has-text-grey is-hidden">
+                <p id="no-products" class="has-text-centered has-text-white is-hidden">
                     No similar products found.
                 </p>
             </div>
@@ -66,12 +80,12 @@
             </div>
         </div>
     </div>
-    
-
 
     <script src="../utils/imageAnalyzer.js"></script>
     <script src="../utils/textAnalyzer.js"></script>
     <script src="../utils/productAnalyzer.js"></script>
+    <script src="../content/productDetector.js"></script>
     <script src="popup.js"></script>
 </body>
 </html>
+

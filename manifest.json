@@ -1,58 +1,49 @@
 {
-    "manifest_version": 3,
-    "name": "StyleSmart",
-    "description": "Streamline your online fashion shopping by finding similar products and coupons effortlessly.",
-    "version": "1.0",
-    "content_security_policy": {
-      "extension_pages": "script-src 'self'; object-src 'self'"
-  },
-    "icons": {
+  "manifest_version": 3,
+  "name": "StyleSmart",
+  "version": "1.0.0",
+  "description": "Compare fashion products across Amazon and Flipkart",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.amazon.in/*",
+    "https://*.flipkart.com/*",
+    "https://real-time-amazon-data.p.rapidapi.com/*",
+    "https://real-time-flipkart-api.p.rapidapi.com/*"
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
       "16": "assets/icons/icon16.png",
       "48": "assets/icons/icon48.png",
       "128": "assets/icons/icon128.png"
-    },
-    "action": {
-      "default_popup": "src/popup/popup.html",
-      "default_icon": "assets/icons/icon16.png",
-      "default_title": "StyleSmart"
-    },
-    "permissions": [
-      "activeTab",
-      "scripting",
-      "storage",
-      "clipboardWrite"
-    ],
-"host_permissions": [
-  "https://*/*",
-  "https://*/*",
-  "https://*.ajio.com/*",
-  "https://*.amazon.com/*",
-  "https://*.amazon.in/*",
-  "https://*.zara.com/*",
-  "https://*.snapdeal.com/*",
-  "https://*.flipkart.com/*"
-  
-],
-"content_scripts": [
-  {
-    "matches": [
-      "https://*/*",
-      "http://*/*",
-      "https://*.ajio.com/*",
-      "https://*.amazon.com/*",
-      "https://*.amazon.in/*",
-      "https://*.zara.com/*",
-      "https://*.snapdeal.com/*",
-      "https://*.flipkart.com/*"
-    ],
-    "js": [
-      "src/utils/productAnalyzer.js",
-      "src/content/productDetector.js",
-      "src/content/content.js"
-    ]
-  }
-],
-    "background": {
-      "service_worker": "src/background/background.js"
     }
+  },
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.in/*",
+        "https://*.flipkart.com/*"
+      ],
+      "js": [
+        "src/utils/imageAnalyzer.js",
+        "src/utils/textAnalyzer.js",
+        "src/utils/productAnalyzer.js",
+        "src/content/productDetector.js",
+        "src/content/content.js"
+      ]
+    }
+  ]
 }

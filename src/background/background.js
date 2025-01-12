@@ -1,312 +1,166 @@
-// Enhanced background.js with improved product analysis and search functionality
-
-class ProductAnalyzer {
+// src/background/background.js
+class BackgroundScript {
     constructor() {
-        this.SIMILARITY_THRESHOLD = 0.3;
-        this.WEIGHTS = {
-            title: 0.4,
-            description: 0.2,
-            price: 0.1,
-            image: 0.3
-        };
+        this.setupMessageListener();
+        this.productCache = new Map();
+        this.rapidApiKey = '78fd557f25mshe39c0d4c5c2851cp15794cjsn9b95dbf86b42';
+        this.amazonApiHost = 'real-time-amazon-data.p.rapidapi.com';
+        this.flipkartApiHost = 'real-time-flipkart-api.p.rapidapi.com';
     }
 
-    // Calculate similarity between two products
-    async analyzeSimilarity(product1, product2) {
-        try {
-            // Get individual similarity scores
-            const titleSimilarity = this.compareTexts(product1.title, product2.title);
-            const priceSimilarity = this.comparePrices(product1.price, product2.price);
-            const imageSimilarity = await this.compareImages(product1.image, product2.image);
-
-            // Calculate weighted average
-            const weightedScore = (
-                (titleSimilarity * this.WEIGHTS.title) +
-                (priceSimilarity * this.WEIGHTS.price) +
-                (imageSimilarity * this.WEIGHTS.image)
-            );
-
-            return weightedScore;
-        } catch (error) {
-            console.error('Error analyzing similarity:', error);
-            return 0;
-        }
-    }
-
-    compareTexts(text1, text2) {
-        if (!text1 || !text2) return 0;
-        
-        const tokens1 = this.tokenize(text1);
-        const tokens2 = this.tokenize(text2);
-        
-        const tf1 = this.calculateTermFrequency(tokens1);
-        const tf2 = this.calculateTermFrequency(tokens2);
-        
-        return this.calculateCosineSimilarity(tf1, tf2);
-    }
-
-    tokenize(text) {
-        return text.toLowerCase()
-            .replace(/[^\w\s-]/g, ' ')
-            .split(/\s+/)
-            .filter(word => word.length > 2)
-            .map(word => this.stemWord(word));
-    }
-
-    stemWord(word) {
-        return word
-            .replace(/ing$/, '')
-            .replace(/ed$/, '')
-            .replace(/s$/, '')
-            .replace(/ly$/, '');
-    }
-
-    calculateTermFrequency(tokens) {
-        const tf = {};
-        tokens.forEach(token => {
-            tf[token] = (tf[token] || 0) + 1;
+    setupMessageListener() {
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.type === 'FIND_SIMILAR_PRODUCTS') {
+                this.handleFindSimilarProducts(message.data, sendResponse);
+                return true;
+            }
         });
-        return tf;
     }
 
-    calculateCosineSimilarity(tf1, tf2) {
-        const allTerms = new Set([...Object.keys(tf1), ...Object.keys(tf2)]);
-        let dotProduct = 0;
-        let magnitude1 = 0;
-        let magnitude2 = 0;
-
-        allTerms.forEach(term => {
-            const freq1 = tf1[term] || 0;
-            const freq2 = tf2[term] || 0;
-            dotProduct += freq1 * freq2;
-            magnitude1 += freq1 * freq1;
-            magnitude2 += freq2 * freq2;
-        });
-
-        const magnitude = Math.sqrt(magnitude1) * Math.sqrt(magnitude2);
-        return magnitude === 0 ? 0 : dotProduct / magnitude;
-    }
-
-    comparePrices(price1, price2) {
-        if (!price1 || !price2) return 0.5;
-        
-        const maxPrice = Math.max(price1, price2);
-        const minPrice = Math.min(price1, price2);
-        const priceDiffPercent = (maxPrice - minPrice) / maxPrice;
-        
-        if (priceDiffPercent <= 0.1) return 1;
-        if (priceDiffPercent <= 0.2) return 0.8;
-        if (priceDiffPercent <= 0.3) return 0.6;
-        if (priceDiffPercent <= 0.5) return 0.4;
-        return 0.2;
-    }
-
-    async compareImages(imageUrl1, imageUrl2) {
+    async handleFindSimilarProducts(sourceProduct, sendResponse) {
         try {
-            if (!imageUrl1 || !imageUrl2) return 0.5;
+            // Get products from both Amazon and Flipkart
+            const amazonProducts = await this.searchAmazonProducts(sourceProduct);
+            const flipkartProducts = await this.searchFlipkartProducts(sourceProduct);
 
-            const offscreenCanvas = new OffscreenCanvas(32, 32);
-            const ctx = offscreenCanvas.getContext('2d');
+            // Combine all products
+            let allProducts = [...amazonProducts, ...flipkartProducts];
 
-            const hash1 = await this.getImageHash(imageUrl1, offscreenCanvas, ctx);
-            const hash2 = await this.getImageHash(imageUrl2, offscreenCanvas, ctx);
+            // Calculate similarity scores and sort
+            const productsWithScores = allProducts.map(product => ({
+                ...product,
+                similarityScore: this.calculateSimilarity(sourceProduct, product)
+            }));
 
-            if (!hash1 || !hash2) return 0.5;
+            // Filter and sort by similarity
+            const similarProducts = productsWithScores
+                .filter(product => product.similarityScore > 0.3)
+                .sort((a, b) => b.similarityScore - a.similarityScore)
+                .slice(0, 6);
 
-            const distance = this.calculateHammingDistance(hash1, hash2);
-            return 1 - (distance / (32 * 32));
+            sendResponse(similarProducts);
         } catch (error) {
-            console.error('Error comparing images:', error);
-            return 0.5;
+            console.error('Error finding similar products:', error);
+            sendResponse([]);
         }
     }
 
-    async getImageHash(imageUrl, canvas, ctx) {
+    async searchAmazonProducts(sourceProduct) {
         try {
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-            const bitmap = await createImageBitmap(blob);
+            const searchQuery = sourceProduct.title.split(' ').slice(0, 3).join(' ');
             
-            ctx.drawImage(bitmap, 0, 0, 32, 32);
-            const imageData = ctx.getImageData(0, 0, 32, 32).data;
+            const url = `https://${this.amazonApiHost}/search?query=${encodeURIComponent(searchQuery)}&country=IN`;
             
-            let hash = '';
-            for (let i = 0; i < imageData.length; i += 4) {
-                const avg = (imageData[i] + imageData[i + 1] + imageData[i + 2]) / 3;
-                hash += avg < 128 ? '0' : '1';
-            }
-            return hash;
-        } catch (error) {
-            console.error('Error generating image hash:', error);
-            return null;
-        }
-    }
-
-    calculateHammingDistance(str1, str2) {
-        let distance = 0;
-        for (let i = 0; i < str1.length; i++) {
-            if (str1[i] !== str2[i]) distance++;
-        }
-        return distance;
-    }
-}
-
-// Enhanced background.js with improved product analysis and search functionality
-class ProductSearchManager {
-    constructor() {
-        this.analyzer = new ProductAnalyzer();
-        this.SEARCH_TIMEOUT = 15000;
-        this.MAX_RETRIES = 3;
-        this.SHOPPING_SITES = {
-            'amazon.in': {
-                searchUrl: 'https://www.amazon.in/s?k=',
-                urlEncode: (term) => encodeURIComponent(term)
-            },
-            'flipkart.com': {
-                searchUrl: 'https://www.flipkart.com/search?q=',
-                urlEncode: (term) => encodeURIComponent(term)
-            },
-            'myntra.com': {
-                searchUrl: 'https://www.myntra.com/search?q=',
-                urlEncode: (term) => encodeURIComponent(term)
-            },
-            'ajio.com': {
-                searchUrl: 'https://www.ajio.com/search/?text=',
-                urlEncode: (term) => encodeURIComponent(term)
-            },
-            'snapdeal.com': {
-                searchUrl: 'https://www.snapdeal.com/search?keyword=',
-                urlEncode: (term) => encodeURIComponent(term)
-            }
-        };
-    }
-
-    async findSimilarProducts(product) {
-        const searchResults = await this.searchAllSites(product);
-        return this.filterAndRankResults(product, searchResults);
-    }
-
-    async searchAllSites(product) {
-        const searchTerms = this.generateSearchKeywords(product);
-        const currentDomain = new URL(product.url).hostname;
-        const allResults = [];
-
-        for (const [domain, siteConfig] of Object.entries(this.SHOPPING_SITES)) {
-            try {
-                const results = await this.searchSingleSiteWithRetry(domain, siteConfig, searchTerms);
-                allResults.push(...results);
-            } catch (error) {
-                console.error(`Error searching ${domain}:`, error);
-            }
-        }
-
-        return allResults;
-    }
-
-    async searchSingleSiteWithRetry(domain, siteConfig, searchTerms, retryCount = 0) {
-        try {
-            const tab = await chrome.tabs.create({
-                url: siteConfig.searchUrl + siteConfig.urlEncode(searchTerms),
-                active: false
-            });
-
-            await new Promise(resolve => setTimeout(resolve, 5000));
-
-            await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: [
-                    'src/utils/textAnalyzer.js',
-                    'src/utils/productAnalyzer.js',
-                    'src/content/productDetector.js'
-                ]
-            });
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            const results = await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: () => {
-                    const detector = new ProductDetector();
-                    return detector.detectSearchResults();
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-RapidAPI-Key': this.rapidApiKey,
+                    'X-RapidAPI-Host': this.amazonApiHost
                 }
             });
 
-            await chrome.tabs.remove(tab.id);
-            return results[0]?.result || [];
-
-        } catch (error) {
-            if (retryCount < this.MAX_RETRIES) {
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                return this.searchSingleSiteWithRetry(domain, siteConfig, searchTerms, retryCount + 1);
+            if (!response.ok) {
+                throw new Error('Amazon API request failed');
             }
-            throw error;
+
+            const data = await response.json();
+            const products = data.data?.products || [];
+
+            // Transform Amazon API response to match our format
+            return products.map(item => ({
+                title: item.product_title || '',
+                price: this.extractPrice(item.product_price),
+                image: item.product_photo,
+                url: item.product_url,
+                domain: 'amazon.in',
+                category: sourceProduct.category,
+                rating: item.product_star_rating,
+                reviews: item.product_num_ratings
+            })).filter(product => product.title && product.price && product.image);
+        } catch (error) {
+            console.error('Error fetching Amazon products:', error);
+            return [];
         }
     }
 
-    generateSearchKeywords(product) {
-        const title = product.title.toLowerCase();
-        
-        const brandMatch = title.match(/^([\w\-]+)/);
-        const brand = brandMatch ? brandMatch[1] : '';
-        
-        const words = title
-            .replace(/[^\w\s-]/g, ' ')
-            .split(/\s+/)
-            .filter(word => word.length > 2)
-            .filter(word => !['with', 'for', 'from', 'the', 'and', 'buy', 'online'].includes(word));
-        
-        const keyTerms = words
-            .filter(word => !word.includes(brand))
-            .filter((word, index, self) => self.indexOf(word) === index)
-            .slice(0, 4);
-        
-        return brand ? `${brand} ${keyTerms.join(' ')}` : keyTerms.join(' ');
+    async searchFlipkartProducts(sourceProduct) {
+        try {
+            const searchQuery = sourceProduct.title.split(' ').slice(0, 3).join(' ');
+
+            const url = `https://${this.flipkartApiHost}/search-products?query=${encodeURIComponent(searchQuery)}`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-RapidAPI-Key': this.rapidApiKey,
+                    'X-RapidAPI-Host': this.flipkartApiHost
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Flipkart API request failed');
+            }
+
+            const data = await response.json();
+            const products = data.data || [];
+
+            // Transform Flipkart API response to match our format
+            return products.map(item => ({
+                title: item.name || '',
+                price: this.extractPrice(item.price),
+                image: item.thumbnail,
+                url: item.url,
+                domain: 'flipkart.com',
+                category: sourceProduct.category,
+                rating: item.rating,
+                reviews: item.reviews_count
+            })).filter(product => product.title && product.price && product.image);
+        } catch (error) {
+            console.error('Error fetching Flipkart products:', error);
+            return [];
+        }
     }
 
-    async filterAndRankResults(originalProduct, searchResults) {
-        const textFilteredResults = searchResults.filter(product => {
-            const titleSimilarity = this.analyzer.compareTexts(originalProduct.title, product.title);
-            return titleSimilarity >= 0.2;
-        });
+    extractPrice(priceString) {
+        if (!priceString) return null;
+        // Extract numeric price from strings like "₹1,234" or "1,234.00"
+        const numericPrice = priceString.replace(/[^0-9.]/g, '');
+        return parseFloat(numericPrice) || null;
+    }
 
-        const analyzedResults = await Promise.all(
-            textFilteredResults.map(async product => {
-                const titleSimilarity = this.analyzer.compareTexts(originalProduct.title, product.title);
-                const priceSimilarity = this.analyzer.comparePrices(originalProduct.price, product.price);
-                
-                const similarityScore = (titleSimilarity * 0.7) + (priceSimilarity * 0.3);
-                
-                return {
-                    ...product,
-                    similarityScore
-                };
-            })
-        );
+    calculateSimilarity(product1, product2) {
+        let score = 0;
+        
+        // Category match (0.3)
+        if (product1.category && product2.category && 
+            product1.category.toLowerCase() === product2.category.toLowerCase()) {
+            score += 0.3;
+        }
 
-        return analyzedResults
-            .filter(product => product.similarityScore >= 0.25)
-            .sort((a, b) => b.similarityScore - a.similarityScore)
-            .slice(0, 6);
+        // Price similarity (0.2)
+        const priceDiff = Math.abs(product1.price - product2.price);
+        const priceScore = Math.max(0, 0.2 - (priceDiff / product1.price) * 0.2);
+        score += priceScore;
+
+        // Title similarity (0.5)
+        const words1 = this.getKeywords(product1.title);
+        const words2 = this.getKeywords(product2.title);
+        const commonWords = words1.filter(word => words2.includes(word));
+        const titleScore = (commonWords.length / Math.max(words1.length, words2.length)) * 0.5;
+        score += titleScore;
+
+        return score;
+    }
+
+    getKeywords(text) {
+        const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with']);
+        return text
+            .toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .split(/\s+/)
+            .filter(word => !stopWords.has(word));
     }
 }
 
-const searchManager = new ProductSearchManager();
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'FIND_SIMILAR_PRODUCTS') {
-        searchManager.findSimilarProducts(message.data)
-            .then(results => sendResponse(results))
-            .catch(error => {
-                console.error('Error finding similar products:', error);
-                sendResponse([]);
-            });
-        return true;
-    }
-
-    if (message.type === 'GET_COUPONS') {
-        sendResponse([]);
-        return true;
-    }
-});
-
-// Ok does it search multiple fashion shopping websites for similar products too?
+// Initialize background script
+new BackgroundScript();
