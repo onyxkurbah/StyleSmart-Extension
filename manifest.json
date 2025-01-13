@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "StyleSmart",
   "version": "1.0.0",
-  "description": "Compare fashion products across Amazon and Flipkart",
+  "description": "Compare fashion products across Amazon, Snapdeal, and Zara",
   "permissions": [
     "activeTab",
     "scripting",
@@ -10,9 +10,9 @@
   ],
   "host_permissions": [
     "https://*.amazon.in/*",
-    "https://*.flipkart.com/*",
-    "https://real-time-amazon-data.p.rapidapi.com/*",
-    "https://real-time-flipkart-api.p.rapidapi.com/*"
+    "https://*.snapdeal.com/*",
+    "https://*.zara.com/*",
+    "https://real-time-amazon-data.p.rapidapi.com/*"
   ],
   "action": {
     "default_popup": "src/popup/popup.html",
@@ -35,7 +35,8 @@
     {
       "matches": [
         "https://*.amazon.in/*",
-        "https://*.flipkart.com/*"
+        "https://*.snapdeal.com/*",
+        "https://*.zara.com/*"
       ],
       "js": [
         "src/utils/imageAnalyzer.js",

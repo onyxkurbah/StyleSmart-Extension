@@ -1,201 +1,209 @@
 class ProductDetector {
     constructor() {
-        this.siteDetectors = {
-            'amazon.in': this.detectAmazonProduct.bind(this),
-            'flipkart.com': this.detectFlipkartProduct.bind(this)
+        this.SUPPORTED_SITES = {
+            'amazon.in': {
+                titleSelector: '#productTitle',
+                priceSelector: '.a-price-whole',
+                imageSelector: '#landingImage',
+                alternativePriceSelectors: [
+                    '#priceblock_ourprice',
+                    '#priceblock_dealprice',
+                    '.a-price .a-offscreen'
+                ],
+                searchResults: {
+                    container: '.s-result-item[data-asin]',
+                    title: 'h2 .a-link-normal',
+                    price: '.a-price-whole',
+                    image: '.s-image',
+                    link: 'h2 .a-link-normal'
+                }
+            },
+            'flipkart.com': {
+                titleSelector: '.B_NuCI',
+                priceSelector: '._30jeq3._16Jk6d',
+                imageSelector: '._396cs4',
+                alternativePriceSelectors: [
+                    '._30jeq3'
+                ],
+                searchResults: {
+                    container: '._1AtVbE',
+                    title: '._4rR01T',
+                    price: '._30jeq3',
+                    image: '._396cs4',
+                    link: '._1fQZEK'
+                }
+            },
+            'myntra.com': {
+                titleSelector: '.pdp-title',
+                priceSelector: '.pdp-price strong',
+                imageSelector: '.image-grid-image',
+                alternativePriceSelectors: [
+                    '.pdp-mrp strong'
+                ],
+                searchResults: {
+                    container: '.product-base',
+                    title: '.product-brand',
+                    price: '.product-price',
+                    image: '.product-image',
+                    link: 'a'
+                }
+            },
+            'ajio.com': {
+                titleSelector: '.prod-name',
+                priceSelector: '.prod-sp',
+                imageSelector: '.zoom-wrap img',
+                alternativePriceSelectors: [
+                    '.prod-cp'
+                ],
+                searchResults: {
+                    container: '.item',
+                    title: '.nameCls',
+                    price: '.price',
+                    image: '.img-radius',
+                    link: 'a'
+                }
+            },
+            'snapdeal.com': {
+                titleSelector: '.pdp-e-i-head',
+                priceSelector: '.payBlkBig',
+                imageSelector: '#bx-slider-left-image-panel img',
+                alternativePriceSelectors: [
+                    '.pdpCutPrice'
+                ],
+                searchResults: {
+                    container: '.product-tuple-listing',
+                    title: '.product-title',
+                    price: '.product-price',
+                    image: '.product-image img',
+                    link: '.product-title'
+                }
+            }
         };
-        this.maxRetries = 10; // Maximum number of retries
-        this.retryInterval = 1000; // Time between retries in milliseconds
+
+        this.site = this.SUPPORTED_SITES[this.getCurrentDomain()];
     }
 
-    async detectProduct() {
-        const domain = window.location.hostname;
-        const detector = this.getDetectorForDomain(domain);
+    detectSearchResults() {
+        if (!this.site?.searchResults) return [];
         
-        if (!detector) {
-            return null;
-        }
+        const results = [];
+        const containers = document.querySelectorAll(this.site.searchResults.container);
+        let count = 0;
+        
+        containers.forEach(container => {
+            try {
+                if (count >= 10) return;
+                
+                const titleElem = container.querySelector(this.site.searchResults.title);
+                const priceElem = container.querySelector(this.site.searchResults.price);
+                const imageElem = container.querySelector(this.site.searchResults.image);
+                const linkElem = container.querySelector(this.site.searchResults.link);
 
-        try {
-            const product = await detector();
-            if (product) {
-                product.domain = domain;
-                product.url = window.location.href;
+                if (titleElem && (priceElem || linkElem)) {
+                    const title = this.cleanText(titleElem.textContent);
+                    const price = this.extractPrice(priceElem?.textContent);
+                    const url = linkElem?.href || '';
+                    
+                    if (title && title.length > 5 && url && !url.includes('javascript:')) {
+                        results.push({
+                            title,
+                            price,
+                            image: imageElem?.src || '',
+                            url,
+                            domain: this.getCurrentDomain()
+                        });
+                        count++;
+                    }
+                }
+            } catch (error) {
+                console.error('Error extracting search result:', error);
             }
-            return product;
-        } catch (error) {
-            console.error('Error detecting product:', error);
-            return null;
-        }
-    }
-
-    getDetectorForDomain(domain) {
-        return Object.entries(this.siteDetectors)
-            .find(([key]) => domain.includes(key))?.[1];
-    }
-
-    // Helper function to wait for an element
-    waitForElement(selector, maxRetries = this.maxRetries) {
-        return new Promise((resolve) => {
-            let retries = 0;
-
-            const checkElement = () => {
-                const element = document.querySelector(selector);
-                if (element) {
-                    resolve(element);
-                    return;
-                }
-
-                retries++;
-                if (retries < maxRetries) {
-                    setTimeout(checkElement, this.retryInterval);
-                } else {
-                    resolve(null); // Resolve with null if element is not found after max retries
-                }
-            };
-
-            checkElement();
         });
+
+        return results;
     }
 
-    // Helper function to wait for any of the provided selectors
-    async waitForAnyElement(selectors, maxRetries = this.maxRetries) {
-        for (let retry = 0; retry < maxRetries; retry++) {
-            for (const selector of selectors) {
-                const element = document.querySelector(selector);
-                if (element) {
-                    return element;
-                }
-            }
-            await new Promise(resolve => setTimeout(resolve, this.retryInterval));
-        }
-        return null;
+    getCurrentDomain() {
+        return window.location.hostname.replace('www.', '');
     }
 
-    async detectAmazonProduct() {
-        // Main product title
-        const title = document.getElementById('productTitle')?.textContent.trim();
-        if (!title) return null;
-
-        // Price - handle different price element structures
-        let price = null;
-        const priceElement = document.querySelector('.a-price-whole, #priceblock_ourprice, #priceblock_dealprice');
-        if (priceElement) {
-            price = parseFloat(priceElement.textContent.replace(/[^0-9.]/g, ''));
-        }
-
-        // Get the main product image
-        const image = document.getElementById('landingImage')?.src ||
-                     document.getElementById('imgBlkFront')?.src;
-
-        // Get category from breadcrumb
-        const categoryElement = document.querySelector('#wayfinding-breadcrumbs_feature_div .a-link-normal');
-        const category = categoryElement?.textContent.trim() || '';
-
-        return { title, price, image, category };
+    cleanText(text) {
+        if (!text) return '';
+        return text.trim().replace(/\s+/g, ' ');
     }
 
-    async detectFlipkartProduct() {
+    extractPrice(text) {
+        if (!text) return null;
+        
+        text = text.toLowerCase()
+            .replace(/[₹₨rs.]/gi, '')
+            .replace(/,/g, '')
+            .replace(/[^0-9.]/g, '')
+            .trim();
+        
+        const price = parseFloat(text);
+        return isNaN(price) ? null : price;
+    }
+
+    detectProduct() {
+        if (!this.site) return null;
+
+        const productInfo = {
+            title: this.getProductTitle(),
+            price: this.getProductPrice(),
+            image: this.getProductImage(),
+            url: window.location.href,
+            domain: this.getCurrentDomain()
+        };
+
+        return productInfo.title ? productInfo : null;
+    }
+
+    getProductTitle() {
         try {
-            // Wait for the page to load by checking for any of these title selectors
-            const titleSelectors = [
-                'span[class*="B_NuCI"]',
-                'span[class*="_35KyD6"]',
-                'h1[class*="yhB1nd"]',
-                'h1.page-title'
-            ];
+            const element = document.querySelector(this.site.titleSelector);
+            return this.cleanText(element?.textContent);
+        } catch (error) {
+            console.error('Error getting product title:', error);
+            return '';
+        }
+    }
 
-            const titleElement = await this.waitForAnyElement(titleSelectors);
-            if (!titleElement) {
-                console.log('Title element not found after retries');
-                return null;
-            }
-
-            const title = titleElement.textContent.trim();
-
-            // Price selectors
-            const priceSelectors = [
-                'div[class*="_30jeq3"]',
-                'div[class*="_1vC4OE"]',
-                'div._16Jk6d'
-            ];
-
-            const priceElement = await this.waitForAnyElement(priceSelectors);
+    getProductPrice() {
+        try {
+            let priceElement = document.querySelector(this.site.priceSelector);
             let price = null;
+
             if (priceElement) {
-                price = parseFloat(priceElement.textContent.replace(/[^0-9.]/g, ''));
+                price = this.extractPrice(priceElement.textContent);
             }
 
-            // Image selectors
-            const imageSelectors = [
-                'img[class*="_396cs4"]',
-                'img[class*="q6DClP"]',
-                'img._396QI4',
-                'img[class*="_2r_T1I"]'
-            ];
-
-            const imageElement = await this.waitForAnyElement(imageSelectors);
-            const image = imageElement?.src;
-
-            // Category selectors
-            const categorySelectors = [
-                'a[class*="_2whKao"]',
-                'a[class*="_1KHd47"]',
-                'div._3GIHBu a',
-                'div[class*="path"] a'
-            ];
-
-            const categoryElement = await this.waitForAnyElement(categorySelectors);
-            const category = categoryElement?.textContent.trim() || '';
-
-            // Verify we have the minimum required data
-            if (title && (price || image)) {
-                return { title, price, image, category };
+            if (!price && this.site.alternativePriceSelectors) {
+                for (let selector of this.site.alternativePriceSelectors) {
+                    priceElement = document.querySelector(selector);
+                    if (priceElement) {
+                        price = this.extractPrice(priceElement.textContent);
+                        if (price) break;
+                    }
+                }
             }
 
-            console.log('Missing required product data');
-            return null;
+            return price;
         } catch (error) {
-            console.error('Error detecting Flipkart product:', error);
+            console.error('Error getting product price:', error);
             return null;
         }
     }
 
-    // Helper method to observe DOM changes for a specific selector
-    observeForElement(selector, callback, timeout = 10000) {
-        return new Promise((resolve) => {
-            // First, check if element already exists
-            const element = document.querySelector(selector);
-            if (element) {
-                callback(element);
-                resolve();
-                return;
-            }
-
-            // Set up mutation observer
-            const observer = new MutationObserver((mutations) => {
-                const element = document.querySelector(selector);
-                if (element) {
-                    observer.disconnect();
-                    callback(element);
-                    resolve();
-                }
-            });
-
-            // Start observing
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-
-            // Set timeout
-            setTimeout(() => {
-                observer.disconnect();
-                resolve();
-            }, timeout);
-        });
+    getProductImage() {
+        try {
+            const element = document.querySelector(this.site.imageSelector);
+            return element?.src || '';
+        } catch (error) {
+            console.error('Error getting product image:', error);
+            return '';
+        }
     }
 }
 
-// Export for use in other modules
 window.ProductDetector = ProductDetector;
