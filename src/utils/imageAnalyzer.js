@@ -1,42 +1,53 @@
-// src/utils/imageAnalyzer.js
 class ImageAnalyzer {
     constructor() {
-        // Initialize FashionCLIP model
-        this.model = null;
-        this.loadModel();
-    }
-
-    async loadModel() {
-        try {
-            // For now, we'll use a simplified version without actual model loading
-            // In production, you would load the FashionCLIP model here
-            this.model = {
-                initialized: true
-            };
-        } catch (error) {
-            console.error('Error loading FashionCLIP model:', error);
-        }
+        // Imagga API credentials
+        this.apiKey = 'acc_895d4a3c0fb3060'; 
+        this.apiSecret = 'db54618b6b2a15464198ec92058e5a8e';
+        this.baseUrl = 'https://api.imagga.com/v2';
     }
 
     async getImageEmbedding(imageUrl) {
         try {
-            // Simplified implementation for demo
-            // In production, this would use the actual FashionCLIP model
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
+            // Get image tags and categories from Imagga
+            const response = await fetch(
+                `${this.baseUrl}/tags?image_url=${encodeURIComponent(imageUrl)}`,
+                {
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${this.apiKey}:${this.apiSecret}`)
+                    }
+                }
+            );
+
+            if (!response.ok) throw new Error('Imagga API request failed');
             
-            // Generate a mock embedding (random values for demo)
-            return new Float32Array(512).map(() => Math.random());
+            const data = await response.json();
+            const tags = data.result.tags;
+
+            // Convert tags to a feature vector
+            return this.convertTagsToVector(tags);
         } catch (error) {
-            console.error('Error getting image embedding:', error);
+            console.error('Error in image analysis:', error);
             return null;
         }
     }
 
+    convertTagsToVector(tags) {
+        // Create a 100-dimensional vector based on tag confidences
+        const vector = new Float32Array(100).fill(0);
+        
+        tags.forEach((tag, index) => {
+            if (index < 100) {
+                vector[index] = tag.confidence / 100;
+            }
+        });
+
+        return vector;
+    }
+
     calculateImageSimilarity(embedding1, embedding2) {
-        // Simplified cosine similarity calculation
         if (!embedding1 || !embedding2) return 0;
 
+        // Cosine similarity calculation
         let dotProduct = 0;
         let norm1 = 0;
         let norm2 = 0;
@@ -50,6 +61,3 @@ class ImageAnalyzer {
         return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
     }
 }
-
-
-window.ImageAnalyzer = ImageAnalyzer;
