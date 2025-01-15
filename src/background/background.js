@@ -2,7 +2,7 @@ class BackgroundScript {
     constructor() {
         this.setupMessageListener();
         this.productCache = new Map();
-        this.rapidApiKey = '78fd557f25mshe39c0d4c5c2851cp15794cjsn9b95dbf86b42';
+        this.rapidApiKey = '';//add your API key
         this.amazonApiHost = 'real-time-amazon-data.p.rapidapi.com';
     }
 
