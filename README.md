@@ -71,5 +71,3 @@ This project was built as part of the **Trek-A-Thon** by:
 We hope this extension enhances your shopping experience and helps you save time and money while exploring the world of fashion!  
 
 ---
-
-This version is more organized, professional, and engaging while maintaining clarity and flow. Let me know if you'd like to tweak anything! 😎
